@@ -1,0 +1,16 @@
+#spring:
+#  application:
+#    name: backend
+spring:
+  application:
+    name: shopflow-backend
+
+  datasource:
+    url: jdbc:postgresql://localhost:5433/shopflow
+    username: shopflow
+    password: shopflow_dev
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
