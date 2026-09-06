@@ -14,3 +14,7 @@ spring:
     hibernate:
       ddl-auto: update
     open-in-view: false
+
+  jwt:
+    secret: shopflow-development-secret-key-change-this-before-production-2026
+    expiration: 3600000
