@@ -66,6 +66,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
 
         } catch (Exception ignored) {
+            System.out.println("exception detail  "+ ignored.getMessage() + "expection stack trace"+ignored.getStackTrace());
             // Invalid token → request continues without authentication
         }
 

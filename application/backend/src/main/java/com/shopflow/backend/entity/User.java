@@ -1,5 +1,6 @@
 package com.shopflow.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 @Entity
@@ -20,7 +21,12 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
+    // Never serialize the password hash. This is a defense-in-depth
+    // guard: even if some future endpoint accidentally returns a User
+    // entity directly (as AuthController.register() was doing), the
+    // hash still won't end up in the response body.
     @Column(nullable = false)
+    @JsonIgnore
     private String password;
 
     @Column(nullable = false)

@@ -1,6 +1,8 @@
 package com.shopflow.backend.config;
 
 import com.shopflow.backend.security.JwtAuthenticationFilter;
+import com.shopflow.backend.security.RestAccessDeniedHandler;
+import com.shopflow.backend.security.RestAuthenticationEntryPoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -15,9 +17,17 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
+    private final RestAccessDeniedHandler restAccessDeniedHandler;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+    public SecurityConfig(
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            RestAuthenticationEntryPoint restAuthenticationEntryPoint,
+            RestAccessDeniedHandler restAccessDeniedHandler
+    ) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.restAuthenticationEntryPoint = restAuthenticationEntryPoint;
+        this.restAccessDeniedHandler = restAccessDeniedHandler;
     }
 
     @Bean
@@ -34,33 +44,30 @@ public class SecurityConfig {
 
                 // JWT authentication is stateless
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(
-                                SessionCreationPolicy.STATELESS
-                        )
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
 
-                // Authorization rules
+                // Unauthenticated/forbidden requests now get a clean JSON
+                // body instead of the empty 401/403 responses we had
+                // before.
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(restAuthenticationEntryPoint)
+                        .accessDeniedHandler(restAccessDeniedHandler)
+                )
+
                 .authorizeHttpRequests(auth -> auth
 
-                        // =========================
                         // Authentication
-                        // =========================
-                        .requestMatchers(
-                                "/api/auth/register",
-                                "/api/auth/login"
-                        ).permitAll()
+                        .requestMatchers("/api/auth/register").permitAll()
+                        .requestMatchers("/api/auth/login").permitAll()
 
-                        // =========================
-                        // Products - Public
-                        // =========================
+                        // Product viewing - public
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/products/**"
                         ).permitAll()
 
-                        // =========================
-                        // Products - ADMIN only
-                        // =========================
+                        // Product management - ADMIN only
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/products"
@@ -76,14 +83,19 @@ public class SecurityConfig {
                                 "/api/products/**"
                         ).hasRole("ADMIN")
 
-                        // =========================
+                        // Cart - authenticated users
+                        .requestMatchers("/api/cart/**").authenticated()
+
+                        // Orders - authenticated users (checkout, own history)
+                        .requestMatchers("/api/orders/**").authenticated()
+
+                        // Admin order management - ADMIN only
+                        .requestMatchers("/api/admin/orders/**").hasRole("ADMIN")
+
                         // Everything else
-                        // =========================
                         .anyRequest().authenticated()
                 )
 
-                // Put our JWT filter before Spring's
-                // username/password authentication filter
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class

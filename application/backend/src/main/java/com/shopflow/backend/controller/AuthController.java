@@ -3,6 +3,7 @@ package com.shopflow.backend.controller;
 import com.shopflow.backend.dto.LoginRequest;
 import com.shopflow.backend.dto.LoginResponse;
 import com.shopflow.backend.dto.RegisterRequest;
+import com.shopflow.backend.dto.UserResponse;
 import com.shopflow.backend.entity.User;
 import com.shopflow.backend.service.UserService;
 import jakarta.validation.Valid;
@@ -21,7 +22,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<User> register(
+    public ResponseEntity<UserResponse> register(
             @Valid @RequestBody RegisterRequest request
     ) {
 
@@ -34,7 +35,7 @@ public class AuthController {
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(user);
+                .body(UserResponse.from(user));
     }
 
     @PostMapping("/login")
