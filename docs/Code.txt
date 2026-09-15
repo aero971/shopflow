@@ -1,0 +1,1514 @@
+
+╭─ aero in @space in    shopflow/application/backend  
+╰─➜ tree
+.
+├── HELP.md
+├── mvnw
+├── mvnw.cmd
+├── pom.xml
+├── src
+│   ├── main
+│   │   ├── java
+│   │   │   └── com
+│   │   │       └── shopflow
+│   │   │           └── backend
+│   │   │               ├── BackendApplication.java
+│   │   │               ├── config
+│   │   │               │   ├── DataInitializer.java
+│   │   │               │   └── SecurityConfig.java
+│   │   │               ├── controller
+│   │   │               │   ├── AuthController.java
+│   │   │               │   ├── CartController.java
+│   │   │               │   └── ProductController.java
+│   │   │               ├── dto
+│   │   │               │   ├── LoginRequest.java
+│   │   │               │   ├── LoginResponse.java
+│   │   │               │   ├── RegisterRequest.java
+│   │   │               │   └── UserResponse.java
+│   │   │               ├── entity
+│   │   │               │   ├── CartItem.java
+│   │   │               │   ├── Cart.java
+│   │   │               │   ├── Product.java
+│   │   │               │   ├── Role.java
+│   │   │               │   └── User.java
+│   │   │               ├── exception
+│   │   │               ├── repository
+│   │   │               │   ├── CartItemRepository.java
+│   │   │               │   ├── CartRepository.java
+│   │   │               │   ├── ProductRepository.java
+│   │   │               │   └── UserRepository.java
+│   │   │               ├── security
+│   │   │               │   └── JwtAuthenticationFilter.java
+│   │   │               └── service
+│   │   │                   ├── CartService.java
+│   │   │                   ├── JwtService.java
+│   │   │                   ├── ProductService.java
+│   │   │                   └── UserService.java
+│   │   └── resources
+│   │       ├── application.yaml
+│   │       ├── static
+│   │       └── templates
+│   └── test
+│       └── java
+│           └── com
+│               └── shopflow
+│                   └── backend
+│                       └── BackendApplicationTests.java
+└── target
+    ├── classes
+    │   ├── application.yaml
+    │   └── com
+    │       └── shopflow
+    │           └── backend
+    │               ├── BackendApplication.class
+    │               ├── config
+    │               │   ├── DataInitializer.class
+    │               │   └── SecurityConfig.class
+    │               ├── controller
+    │               │   ├── AuthController.class
+    │               │   ├── CartController$CartItemRequest.class
+    │               │   ├── CartController$QuantityRequest.class
+    │               │   ├── CartController.class
+    │               │   └── ProductController.class
+    │               ├── dto
+    │               │   ├── LoginRequest.class
+    │               │   ├── LoginResponse.class
+    │               │   ├── RegisterRequest.class
+    │               │   └── UserResponse.class
+    │               ├── entity
+    │               │   ├── Cart.class
+    │               │   ├── CartItem.class
+    │               │   ├── Product.class
+    │               │   ├── Role.class
+    │               │   └── User.class
+    │               ├── repository
+    │               │   ├── CartItemRepository.class
+    │               │   ├── CartRepository.class
+    │               │   ├── ProductRepository.class
+    │               │   └── UserRepository.class
+    │               ├── security
+    │               │   └── JwtAuthenticationFilter.class
+    │               └── service
+    │                   ├── CartService.class
+    │                   ├── JwtService.class
+    │                   ├── ProductService.class
+    │                   └── UserService.class
+    ├── generated-sources
+    │   └── annotations
+    └── maven-status
+        └── maven-compiler-plugin
+            └── compile
+                └── default-compile
+                    ├── createdFiles.lst
+                    └── inputFiles.lst
+
+41 directories, 59 files
+
+
+
+
+
+package com.shopflow.backend.config;
+
+import com.shopflow.backend.entity.Role;
+import com.shopflow.backend.entity.User;
+import com.shopflow.backend.repository.UserRepository;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+@Configuration
+public class DataInitializer {
+
+    @Bean
+    CommandLineRunner initializeAdmin(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder
+    ) {
+        return args -> {
+
+            String adminEmail = "admin@shopflow.com";
+
+            if (!userRepository.existsByEmail(adminEmail)) {
+
+                User admin = new User(
+                        "ShopFlow Admin",
+                        adminEmail,
+                        passwordEncoder.encode("admin123"),
+                        "Pune",
+                        Role.ADMIN
+                );
+
+                userRepository.save(admin);
+
+                System.out.println("=================================");
+                System.out.println("ShopFlow ADMIN created");
+                System.out.println("Email: admin@shopflow.com");
+                System.out.println("Password: admin123");
+                System.out.println("=================================");
+
+            } else {
+                System.out.println("ShopFlow ADMIN already exists.");
+            }
+        };
+    }
+}
+
+
+package com.shopflow.backend.config;
+
+import com.shopflow.backend.security.JwtAuthenticationFilter;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+@Configuration
+public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+
+        http
+                // We are using JWT, so CSRF is disabled
+                .csrf(csrf -> csrf.disable())
+
+                // JWT authentication is stateless
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+
+                .authorizeHttpRequests(auth -> auth
+
+                        // Authentication
+                        .requestMatchers("/api/auth/register").permitAll()
+                        .requestMatchers("/api/auth/login").permitAll()
+
+                        // Product viewing - public
+                        .requestMatchers(
+                                org.springframework.http.HttpMethod.GET,
+                                "/api/products/**"
+                        ).permitAll()
+
+                        // Product management - ADMIN only
+                        .requestMatchers(
+                                org.springframework.http.HttpMethod.POST,
+                                "/api/products"
+                        ).hasRole("ADMIN")
+
+                        .requestMatchers(
+                                org.springframework.http.HttpMethod.PUT,
+                                "/api/products/**"
+                        ).hasRole("ADMIN")
+
+                        .requestMatchers(
+                                org.springframework.http.HttpMethod.DELETE,
+                                "/api/products/**"
+                        ).hasRole("ADMIN")
+
+                        // Cart - authenticated users
+                        .requestMatchers("/api/cart/**").authenticated()
+
+                        // Everything else
+                        .anyRequest().authenticated()
+                );
+
+        return http.build();
+    }
+}
+
+package com.shopflow.backend.controller;
+
+import com.shopflow.backend.dto.LoginRequest;
+import com.shopflow.backend.dto.LoginResponse;
+import com.shopflow.backend.dto.RegisterRequest;
+import com.shopflow.backend.entity.User;
+import com.shopflow.backend.service.UserService;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/auth")
+public class AuthController {
+
+    private final UserService userService;
+
+    public AuthController(UserService userService) {
+        this.userService = userService;
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<User> register(
+            @Valid @RequestBody RegisterRequest request
+    ) {
+
+        User user = userService.registerUser(
+                request.getName(),
+                request.getEmail(),
+                request.getPassword(),
+                request.getAddress()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(user);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(
+            @Valid @RequestBody LoginRequest request
+    ) {
+
+        LoginResponse response = userService.loginUser(
+                request.getEmail(),
+                request.getPassword()
+        );
+
+        return ResponseEntity.ok(response);
+    }
+}
+
+package com.shopflow.backend.controller;
+
+import com.shopflow.backend.entity.Cart;
+import com.shopflow.backend.entity.CartItem;
+import com.shopflow.backend.entity.User;
+import com.shopflow.backend.repository.UserRepository;
+import com.shopflow.backend.service.CartService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+
+import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/cart")
+public class CartController {
+
+    private final CartService cartService;
+    private final UserRepository userRepository;
+
+    public CartController(
+            CartService cartService,
+            UserRepository userRepository
+    ) {
+        this.cartService = cartService;
+        this.userRepository = userRepository;
+    }
+
+    @GetMapping
+    public ResponseEntity<?> getCart(Authentication authentication) {
+
+        Long userId = getUserId(authentication);
+
+        Cart cart = cartService.getCart(userId);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("id", cart.getId());
+        response.put("items", cart.getItems());
+        response.put("total", cartService.calculateTotal(cart));
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/items")
+    public ResponseEntity<CartItem> addToCart(
+            Authentication authentication,
+            @RequestBody CartItemRequest request
+    ) {
+
+        Long userId = getUserId(authentication);
+
+        CartItem cartItem = cartService.addToCart(
+                userId,
+                request.productId(),
+                request.quantity()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(cartItem);
+    }
+
+    @PutMapping("/items/{productId}")
+    public ResponseEntity<CartItem> updateQuantity(
+            Authentication authentication,
+            @PathVariable Long productId,
+            @RequestBody QuantityRequest request
+    ) {
+
+        Long userId = getUserId(authentication);
+
+        CartItem cartItem = cartService.updateQuantity(
+                userId,
+                productId,
+                request.quantity()
+        );
+
+        return ResponseEntity.ok(cartItem);
+    }
+
+    @DeleteMapping("/items/{productId}")
+    public ResponseEntity<Void> removeFromCart(
+            Authentication authentication,
+            @PathVariable Long productId
+    ) {
+
+        Long userId = getUserId(authentication);
+
+        cartService.removeFromCart(userId, productId);
+
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping
+    public ResponseEntity<Void> clearCart(
+            Authentication authentication
+    ) {
+
+        Long userId = getUserId(authentication);
+
+        cartService.clearCart(userId);
+
+        return ResponseEntity.noContent().build();
+    }
+
+    private Long getUserId(Authentication authentication) {
+
+        String email = authentication.getName();
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "User not found with email: " + email
+                        )
+                );
+
+        return user.getId();
+    }
+
+    public record CartItemRequest(
+            Long productId,
+            Integer quantity
+    ) {
+    }
+
+    public record QuantityRequest(
+            Integer quantity
+    ) {
+    }
+}
+package com.shopflow.backend.controller;
+
+import com.shopflow.backend.entity.Product;
+import com.shopflow.backend.service.ProductService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/products")
+public class ProductController {
+
+    private final ProductService productService;
+
+    public ProductController(ProductService productService) {
+        this.productService = productService;
+    }
+
+    @PostMapping
+    public ResponseEntity<Product> createProduct(@RequestBody Product product) {
+        Product createdProduct = productService.createProduct(product);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdProduct);
+    }
+
+    @GetMapping
+    public ResponseEntity<List<Product>> getAllProducts() {
+        return ResponseEntity.ok(productService.getAllProducts());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Product> getProductById(@PathVariable Long id) {
+        return ResponseEntity.ok(productService.getProductById(id));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Product> updateProduct(
+            @PathVariable Long id,
+            @RequestBody Product product
+    ) {
+        return ResponseEntity.ok(productService.updateProduct(id, product));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
+        productService.deleteProduct(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+package com.shopflow.backend.dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+
+public class LoginRequest {
+
+    @Email
+    @NotBlank
+    private String email;
+
+    @NotBlank
+    private String password;
+
+    public LoginRequest() {
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+}package com.shopflow.backend.dto;
+
+public class LoginResponse {
+
+    private String token;
+    private Long userId;
+    private String name;
+    private String email;
+    private String role;
+
+    public LoginResponse(String token, Long userId, String name, String email, String role) {
+        this.token = token;
+        this.userId = userId;
+        this.name = name;
+        this.email = email;
+        this.role = role;
+    }
+
+    public String getToken() {
+        return token;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public String getRole() {
+        return role;
+    }
+}
+package com.shopflow.backend.dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+
+public class RegisterRequest {
+
+    @NotBlank(message = "Name is required")
+    private String name;
+
+    @NotBlank(message = "Email is required")
+    @Email(message = "Invalid email format")
+    private String email;
+
+    @NotBlank(message = "Password is required")
+    private String password;
+
+    @NotBlank(message = "Address is required")
+    private String address;
+
+    public RegisterRequest() {
+    }
+
+    public RegisterRequest(String name, String email, String password, String address) {
+        this.name = name;
+        this.email = email;
+        this.password = password;
+        this.address = address;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+}
+
+package com.shopflow.backend.dto;
+
+import com.shopflow.backend.entity.Role;
+import com.shopflow.backend.entity.User;
+
+public class UserResponse {
+
+    private Long id;
+    private String name;
+    private String email;
+    private String address;
+    private Role role;
+
+    public UserResponse() {
+    }
+
+    public UserResponse(Long id, String name, String email, String address, Role role) {
+        this.id = id;
+        this.name = name;
+        this.email = email;
+        this.address = address;
+        this.role = role;
+    }
+
+    public static UserResponse from(User user) {
+        return new UserResponse(
+                user.getId(),
+                user.getName(),
+                user.getEmail(),
+                user.getAddress(),
+                user.getRole()
+        );
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public Role getRole() {
+        return role;
+    }
+}
+
+package com.shopflow.backend.entity;
+
+import jakarta.persistence.*;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Entity
+@Table(name = "carts")
+public class Cart {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @OneToOne
+    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    private User user;
+
+    @OneToMany(
+            mappedBy = "cart",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    private List<CartItem> items = new ArrayList<>();
+
+    public Cart() {
+    }
+
+    public Cart(User user) {
+        this.user = user;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
+    public List<CartItem> getItems() {
+        return items;
+    }
+
+    public void setItems(List<CartItem> items) {
+        this.items = items;
+    }
+}
+package com.shopflow.backend.entity;
+
+import jakarta.persistence.*;
+
+@Entity
+@Table(
+        name = "cart_items",
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = {"cart_id", "product_id"})
+        }
+)
+public class CartItem {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne
+    @JoinColumn(name = "cart_id", nullable = false)
+    private Cart cart;
+
+    @ManyToOne
+    @JoinColumn(name = "product_id", nullable = false)
+    private Product product;
+
+    @Column(nullable = false)
+    private Integer quantity;
+
+    public CartItem() {
+    }
+
+    public CartItem(Cart cart, Product product, Integer quantity) {
+        this.cart = cart;
+        this.product = product;
+        this.quantity = quantity;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public Cart getCart() {
+        return cart;
+    }
+
+    public void setCart(Cart cart) {
+        this.cart = cart;
+    }
+
+    public Product getProduct() {
+        return product;
+    }
+
+    public void setProduct(Product product) {
+        this.product = product;
+    }
+
+    public Integer getQuantity() {
+        return quantity;
+    }
+
+    public void setQuantity(Integer quantity) {
+        this.quantity = quantity;
+    }
+}
+package com.shopflow.backend.entity;
+
+import jakarta.persistence.*;
+
+import java.math.BigDecimal;
+
+@Entity
+@Table(name = "products")
+public class Product {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String name;
+
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String description;
+
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal price;
+
+    @Column(nullable = false)
+    private Integer stock;
+
+    public Product() {
+    }
+
+    public Product(String name, String description, BigDecimal price, Integer stock) {
+        this.name = name;
+        this.description = description;
+        this.price = price;
+        this.stock = stock;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public BigDecimal getPrice() {
+        return price;
+    }
+
+    public void setPrice(BigDecimal price) {
+        this.price = price;
+    }
+
+    public Integer getStock() {
+        return stock;
+    }
+
+    public void setStock(Integer stock) {
+        this.stock = stock;
+    }
+}
+package com.shopflow.backend.entity;
+
+public enum Role {
+    USER,
+    ADMIN
+}
+package com.shopflow.backend.entity;
+
+import jakarta.persistence.*;
+
+@Entity
+@Table(
+        name = "users",
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = "email")
+        }
+)
+public class User {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String name;
+
+    @Column(nullable = false, unique = true)
+    private String email;
+
+    @Column(nullable = false)
+    private String password;
+
+    @Column(nullable = false)
+    private String address;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Role role;
+
+    public User() {
+    }
+
+    public User(String name, String email, String password, String address, Role role) {
+        this.name = name;
+        this.email = email;
+        this.password = password;
+        this.address = address;
+        this.role = role;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public Role getRole() {
+        return role;
+    }
+
+    public void setRole(Role role) {
+        this.role = role;
+    }
+}
+package com.shopflow.backend.repository;
+
+import com.shopflow.backend.entity.CartItem;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface CartItemRepository extends JpaRepository<CartItem, Long> {
+
+    Optional<CartItem> findByCartIdAndProductId(Long cartId, Long productId);
+}
+
+package com.shopflow.backend.repository;
+
+import com.shopflow.backend.entity.Cart;
+import com.shopflow.backend.entity.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface CartRepository extends JpaRepository<Cart, Long> {
+
+    Optional<Cart> findByUser(User user);
+
+    Optional<Cart> findByUserId(Long userId);
+}
+
+
+package com.shopflow.backend.repository;
+
+import com.shopflow.backend.entity.Product;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface ProductRepository extends JpaRepository<Product, Long> {
+}
+
+package com.shopflow.backend.repository;
+
+import com.shopflow.backend.entity.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface UserRepository extends JpaRepository<User, Long> {
+
+    boolean existsByEmail(String email);
+
+    Optional<User> findByEmail(String email);
+}
+
+package com.shopflow.backend.security;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import com.shopflow.backend.service.JwtService;
+
+import java.io.IOException;
+import java.util.List;
+
+@Component
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private final JwtService jwtService;
+
+    public JwtAuthenticationFilter(JwtService jwtService) {
+        this.jwtService = jwtService;
+    }
+
+    @Override
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain
+    ) throws ServletException, IOException {
+
+        String authHeader = request.getHeader("Authorization");
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        String token = authHeader.substring(7);
+
+        try {
+            String email = jwtService.extractEmail(token);
+            String role = jwtService.extractRole(token);
+
+            if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+
+                if (jwtService.isTokenValid(token, email)) {
+
+                    var authorities = List.of(
+                            new SimpleGrantedAuthority("ROLE_" + role)
+                    );
+
+                    var authentication =
+                            new UsernamePasswordAuthenticationToken(
+                                    email,
+                                    null,
+                                    authorities
+                            );
+
+                    SecurityContextHolder.getContext()
+                            .setAuthentication(authentication);
+                }
+            }
+
+        } catch (Exception ignored) {
+            System.out.println("exception detail  "+ ignored.getMessage() + "expection stack trace"+ignored.getStackTrace());
+            // Invalid token → request continues without authentication
+        }
+
+        filterChain.doFilter(request, response);
+    }
+}
+
+package com.shopflow.backend.service;
+
+import com.shopflow.backend.entity.Cart;
+import com.shopflow.backend.entity.CartItem;
+import com.shopflow.backend.entity.Product;
+import com.shopflow.backend.entity.User;
+import com.shopflow.backend.repository.CartItemRepository;
+import com.shopflow.backend.repository.CartRepository;
+import com.shopflow.backend.repository.ProductRepository;
+import com.shopflow.backend.repository.UserRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+
+@Service
+public class CartService {
+
+    private final CartRepository cartRepository;
+    private final CartItemRepository cartItemRepository;
+    private final ProductRepository productRepository;
+    private final UserRepository userRepository;
+
+    public CartService(
+            CartRepository cartRepository,
+            CartItemRepository cartItemRepository,
+            ProductRepository productRepository,
+            UserRepository userRepository
+    ) {
+        this.cartRepository = cartRepository;
+        this.cartItemRepository = cartItemRepository;
+        this.productRepository = productRepository;
+        this.userRepository = userRepository;
+    }
+
+    public Cart getCart(Long userId) {
+        User user = getUser(userId);
+
+        return cartRepository.findByUser(user)
+                .orElseGet(() -> {
+                    Cart cart = new Cart();
+                    cart.setUser(user);
+                    return cartRepository.save(cart);
+                });
+    }
+
+    @Transactional
+    public CartItem addToCart(
+            Long userId,
+            Long productId,
+            Integer quantity
+    ) {
+        if (quantity == null || quantity <= 0) {
+            throw new IllegalArgumentException(
+                    "Quantity must be greater than zero"
+            );
+        }
+
+        Cart cart = getCart(userId);
+
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Product not found with id: " + productId
+                        )
+                );
+
+        if (product.getStock() < quantity) {
+            throw new IllegalArgumentException(
+                    "Not enough stock available"
+            );
+        }
+
+        CartItem cartItem = cartItemRepository
+                .findByCartIdAndProductId(cart.getId(), productId)
+                .orElse(null);
+
+        if (cartItem != null) {
+
+            int newQuantity = cartItem.getQuantity() + quantity;
+
+            if (newQuantity > product.getStock()) {
+                throw new IllegalArgumentException(
+                        "Not enough stock available"
+                );
+            }
+
+            cartItem.setQuantity(newQuantity);
+
+        } else {
+
+            cartItem = new CartItem();
+            cartItem.setCart(cart);
+            cartItem.setProduct(product);
+            cartItem.setQuantity(quantity);
+        }
+
+        return cartItemRepository.save(cartItem);
+    }
+
+    @Transactional
+    public CartItem updateQuantity(
+            Long userId,
+            Long productId,
+            Integer quantity
+    ) {
+        if (quantity == null || quantity <= 0) {
+            throw new IllegalArgumentException(
+                    "Quantity must be greater than zero"
+            );
+        }
+
+        Cart cart = getCart(userId);
+
+        CartItem cartItem = cartItemRepository
+                .findByCartIdAndProductId(cart.getId(), productId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Product is not in the cart"
+                        )
+                );
+
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Product not found with id: " + productId
+                        )
+                );
+
+        if (quantity > product.getStock()) {
+            throw new IllegalArgumentException(
+                    "Not enough stock available"
+            );
+        }
+
+        cartItem.setQuantity(quantity);
+
+        return cartItemRepository.save(cartItem);
+    }
+
+    @Transactional
+    public void removeFromCart(
+            Long userId,
+            Long productId
+    ) {
+        Cart cart = getCart(userId);
+
+        CartItem cartItem = cartItemRepository
+                .findByCartIdAndProductId(cart.getId(), productId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Product is not in the cart"
+                        )
+                );
+
+        cartItemRepository.delete(cartItem);
+    }
+
+    @Transactional
+    public void clearCart(Long userId) {
+        Cart cart = getCart(userId);
+
+        cart.getItems().clear();
+
+        cartRepository.save(cart);
+    }
+
+    public BigDecimal calculateTotal(Cart cart) {
+        return cart.getItems()
+                .stream()
+                .map(item ->
+                        item.getProduct()
+                                .getPrice()
+                                .multiply(
+                                        BigDecimal.valueOf(
+                                                item.getQuantity()
+                                        )
+                                )
+                )
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private User getUser(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "User not found with id: " + userId
+                        )
+                );
+    }
+
+    
+}
+package com.shopflow.backend.service;
+
+import com.shopflow.backend.entity.Role;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import org.springframework.stereotype.Service;
+
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
+import java.util.Date;
+
+@Service
+public class JwtService {
+
+    private static final String SECRET =
+            "shopflow-super-secret-key-change-this-in-production-2026";
+
+    private final SecretKey key =
+            Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
+
+    public String generateToken(String email, Role role) {
+        return Jwts.builder()
+                .subject(email)
+                .claim("role", role.name())
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + 60 * 60 * 1000))
+                .signWith(key)
+                .compact();
+    }
+
+    public String extractEmail(String token) {
+        return extractClaims(token).getSubject();
+    }
+
+    public String extractRole(String token) {
+        return extractClaims(token).get("role", String.class);
+    }
+
+    public boolean isTokenValid(String token, String email) {
+        try {
+            String tokenEmail = extractEmail(token);
+            return tokenEmail.equals(email) && !isTokenExpired(token);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private boolean isTokenExpired(String token) {
+        return extractClaims(token)
+                .getExpiration()
+                .before(new Date());
+    }
+
+    private Claims extractClaims(String token) {
+        return Jwts.parser()
+                .verifyWith(key)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+    }
+}
+
+package com.shopflow.backend.service;
+
+import com.shopflow.backend.entity.Product;
+import com.shopflow.backend.repository.ProductRepository;
+import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+@Service
+public class ProductService {
+
+    private final ProductRepository productRepository;
+
+    public ProductService(ProductRepository productRepository) {
+        this.productRepository = productRepository;
+    }
+
+    public Product createProduct(Product product) {
+        validateProduct(product);
+        return productRepository.save(product);
+    }
+
+    public List<Product> getAllProducts() {
+        return productRepository.findAll();
+    }
+
+    public Product getProductById(Long id) {
+        return productRepository.findById(id)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Product not found with id: " + id)
+                );
+    }
+
+    public Product updateProduct(Long id, Product updatedProduct) {
+        Product existingProduct = getProductById(id);
+
+        validateProduct(updatedProduct);
+
+        existingProduct.setName(updatedProduct.getName());
+        existingProduct.setDescription(updatedProduct.getDescription());
+        existingProduct.setPrice(updatedProduct.getPrice());
+        existingProduct.setStock(updatedProduct.getStock());
+
+        return productRepository.save(existingProduct);
+    }
+
+    public void deleteProduct(Long id) {
+        Product product = getProductById(id);
+        productRepository.delete(product);
+    }
+
+    private void validateProduct(Product product) {
+
+        if (product.getName() == null || product.getName().isBlank()) {
+            throw new IllegalArgumentException("Product name is required");
+        }
+
+        if (product.getDescription() == null || product.getDescription().isBlank()) {
+            throw new IllegalArgumentException("Product description is required");
+        }
+
+        if (product.getPrice() == null ||
+                product.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Product price must be greater than zero");
+        }
+
+        if (product.getStock() == null || product.getStock() < 0) {
+            throw new IllegalArgumentException("Product stock cannot be negative");
+        }
+    }
+}
+package com.shopflow.backend.service;
+
+import com.shopflow.backend.dto.LoginResponse;
+import com.shopflow.backend.entity.Role;
+import com.shopflow.backend.entity.User;
+import com.shopflow.backend.repository.UserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+@Service
+public class UserService {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+
+    public UserService(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            JwtService jwtService
+    ) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
+    }
+
+    public User registerUser(
+            String name,
+            String email,
+            String password,
+            String address
+    ) {
+
+        if (userRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException("Email already registered");
+        }
+
+        User user = new User(
+                name,
+                email,
+                passwordEncoder.encode(password),
+                address,
+                Role.USER
+        );
+
+        return userRepository.save(user);
+    }
+
+    public LoginResponse loginUser(
+            String email,
+            String password
+    ) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Invalid email or password")
+                );
+
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new IllegalArgumentException("Invalid email or password");
+        }
+
+        String token = jwtService.generateToken(user.getEmail(),
+                user.getRole());
+
+        return new LoginResponse(
+                token,
+                user.getId(),
+                user.getName(),
+                user.getEmail(),
+                user.getRole().name()
+        );
+    }
+}
+
+
+package com.shopflow.backend;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class BackendApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(BackendApplication.class, args);
+	}
+
+}
+#spring:
+#  application:
+#    name: backend
+spring:
+  application:
+    name: shopflow-backend
+
+  datasource:
+    url: jdbc:postgresql://localhost:5433/shopflow
+    username: shopflow
+    password: shopflow_dev
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+  jwt:
+    secret: shopflow-development-secret-key-change-this-before-production-2026
+    expiration: 3600000
